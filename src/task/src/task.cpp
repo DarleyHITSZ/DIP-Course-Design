@@ -14,7 +14,6 @@
 using namespace cv;
 using namespace std;
 
-/************************* 【核心参数区】*************************/
 // ====================== 1. 摄像头配置 ======================
 enum CameraType { COMPUTER_CAM, ZED_CAM, REALSENSE_CAM };
 const CameraType CAMERA_TYPE = ZED_CAM;       // 选择摄像头
@@ -29,15 +28,15 @@ const int S_LOW = 150;
 const int S_HIGH = 255;
 const int V_LOW = 35;
 const int V_HIGH = 255;
-const int MIN_CONTOUR_AREA = 200;  // 降低阈值，避免漏检锥桶
+const int MIN_CONTOUR_AREA = 200; 
 
 // ====================== 3. 运动控制参数======================
 const double D1 = 0.5;
 const double D2 = 0.5;
 const double ANG1 = 40.0;
 const double ANG2 = 50.0;
-const double LINEAR_SPEED = 0.1;    // 直行速度=0.05m/s
-const double ANGULAR_SPEED = 0.5;    // 旋转角速度=0.5rad/s
+const double LINEAR_SPEED = 0.1;    // 直行速度
+const double ANGULAR_SPEED = 0.5;    // 旋转角速度
 
 // ====================== 4. 固定参数 ======================
 bool cone_detected = false;
@@ -62,7 +61,6 @@ enum MotionState {
     STOP
 };
 MotionState current_state = IDLE;
-/*****************************************************************************************/
 
 // Realsense图像回调
 void realsenseImgCallback(const sensor_msgs::Image::ConstPtr& msg) {
@@ -73,18 +71,18 @@ void realsenseImgCallback(const sensor_msgs::Image::ConstPtr& msg) {
     }
 }
 
-// 锥桶识别（简化逻辑，确保检测成功）
+// 锥桶识别
 void detectCone(const Mat& img) {
     Mat hsv_img, mask;
     cvtColor(img, hsv_img, COLOR_BGR2HSV);
     inRange(hsv_img, Scalar(H_LOW, S_LOW, V_LOW), Scalar(H_HIGH, S_HIGH, V_HIGH), mask);
     
-    // 形态学去噪（与实验二一致，避免过度过滤）
+    // 形态学去噪
     Mat kernel = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
     morphologyEx(mask, mask, MORPH_OPEN, kernel);
     morphologyEx(mask, mask, MORPH_CLOSE, kernel);
     
-    // 轮廓检测（去掉宽高比过滤，确保锥桶能被检测到）
+    // 轮廓检测
     vector<vector<Point>> contours;
     vector<Vec4i> hierarchy;
     findContours(mask, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
@@ -93,7 +91,6 @@ void detectCone(const Mat& img) {
     for (size_t i = 0; i < contours.size(); ++i) {
         if (contourArea(contours[i]) > MIN_CONTOUR_AREA) {
             cone_detected = true;
-            ROS_INFO("检测到有效锥桶，轮廓面积=%.0f", contourArea(contours[i]));
             break;
         }
     }
@@ -131,7 +128,6 @@ double calcTurnAngle(double start_yaw, double current_yaw) {
     return fabs(diff);
 }
 
-// 运动控制（简化逻辑，对齐实验二发布方式）
 // 运动控制
 void motionControl() {
     geometry_msgs::Twist vel_msg;
@@ -156,7 +152,7 @@ void motionControl() {
             ROS_INFO("启动任务：开始直行D1=%.2fm，速度=%.2fm/s", D1, LINEAR_SPEED);
         }
     
-    // 各状态运动控制（仅修改转弯时的angular.z符号）
+    // 各状态运动控制
     switch (current_state) {
         case GO_STRAIGHT_D1: {
             double distance = calcDistance(start_x, start_y, current_x, current_y);
@@ -166,7 +162,7 @@ void motionControl() {
                 ROS_INFO("完成D1直行（%.2fm），开始右转ANG1=%.1f°，角速度=%.2frad/s", 
                          distance, ANG1, ANGULAR_SPEED);
                 vel_msg.linear.x = 0.0;
-                vel_msg.angular.z = -ANGULAR_SPEED;  // 关键修改：正→负，实现右转
+                vel_msg.angular.z = -ANGULAR_SPEED; 
             } else {
                 vel_msg.linear.x = LINEAR_SPEED;
                 vel_msg.angular.z = 0.0;
@@ -187,7 +183,7 @@ void motionControl() {
                 vel_msg.linear.x = LINEAR_SPEED;
             } else {
                 vel_msg.linear.x = 0.0;
-                vel_msg.angular.z = -ANGULAR_SPEED;  // 关键修改：正→负，实现右转
+                vel_msg.angular.z = -ANGULAR_SPEED;  
                 ROS_INFO("右转ANG1：已转%.1f°/%.1f°", turned_angle * 180 / M_PI, ANG1);
             }
             break;
@@ -200,7 +196,7 @@ void motionControl() {
                 start_yaw = current_yaw;
                 ROS_INFO("完成D2直行（%.2fm），开始右转ANG2=%.1f°", distance, ANG2);
                 vel_msg.linear.x = 0.0;
-                vel_msg.angular.z = -ANGULAR_SPEED;  // 关键修改：正→负，实现右转
+                vel_msg.angular.z = -ANGULAR_SPEED;  
             } else {
                 vel_msg.linear.x = LINEAR_SPEED;
                 vel_msg.angular.z = 0.0;
@@ -219,7 +215,7 @@ void motionControl() {
                 vel_msg.linear.x = LINEAR_SPEED;
             } else {
                 vel_msg.linear.x = 0.0;
-                vel_msg.angular.z = -ANGULAR_SPEED;  // 关键修改：正→负，实现右转
+                vel_msg.angular.z = -ANGULAR_SPEED; 
                 ROS_INFO("右转ANG2：已转%.1f°/%.1f°", turned_angle * 180 / M_PI, ANG2);
             }
             break;
@@ -249,17 +245,17 @@ bool initCamera() {
             ROS_ERROR("电脑摄像头初始化失败！");
             return false;
         }
-        ROS_INFO("初始化电脑摄像头");
+        ROS_INFO("初始化电脑摄像头成功");
     } else if (CAMERA_TYPE == ZED_CAM) {
         capture.open(ZED_CAM_ID);
         if (!capture.isOpened()) {
                 ROS_ERROR("ZED摄像头初始化失败！");
                 return false;
         }
-        ROS_INFO("初始化ZED摄像头");
+        ROS_INFO("初始化ZED摄像头成功");
         waitKey(1000);  
     } else if (CAMERA_TYPE == REALSENSE_CAM) {
-        ROS_INFO("初始化Realsense摄像头");
+        ROS_INFO("初始化Realsense摄像头成功");
     } else {
         ROS_ERROR("未知摄像头类型");
         return false;
@@ -276,27 +272,27 @@ int main(int argc, char** argv) {
         return -1;
     }
     
-    // 2. 创建订阅者/发布者（与实验二一致，队列大小=10）
+    // 2. 创建订阅者/发布者
     ros::Subscriber odom_sub = nh.subscribe("/odom", 10, odomCallback);
     ros::Subscriber imu_sub = nh.subscribe("/imu", 10, imuCallback);
     ros::Subscriber rs_img_sub;
     if (CAMERA_TYPE == REALSENSE_CAM) {
         rs_img_sub = nh.subscribe(REALSENSE_TOPIC, 10, realsenseImgCallback);
     }
-    // 全局发布者，确保所有函数可访问（实验二核心配置）
+    // 全局发布者，确保所有函数可访问
     vel_pub = nh.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
     
-    // 3. 创建可视化窗口（与实验二一致）
+    // 3. 创建可视化窗口
     namedWindow("原始图像", WINDOW_NORMAL);
     namedWindow("锥桶掩码", WINDOW_NORMAL);
     
-    // 4. 主循环（10Hz，与实验二一致）
+    // 4. 主循环10Hz
     ros::Rate loop_rate(10);
     while (ros::ok()) {
         Mat frame;
         bool is_frame_valid = false;
         
-        // 图像获取（严格遵循实验二逻辑）
+        // 图像获取
         if (CAMERA_TYPE == COMPUTER_CAM || CAMERA_TYPE == ZED_CAM) {
             capture.read(frame);
             if (!frame.empty()) {
@@ -321,7 +317,7 @@ int main(int argc, char** argv) {
             detectCone(frame);
         }
         
-        // 运动控制（每次循环强制调用，与实验二一致）
+        // 运动控制
         motionControl();
         
         ros::spinOnce();
