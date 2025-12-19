@@ -31,11 +31,11 @@ const int V_HIGH = 255;
 const int MIN_CONTOUR_AREA = 200; 
 
 // ====================== 3. 运动控制参数======================
-const double D1 = 0.5;
-const double D2 = 0.5;
-const double ANG1 = 40.0;
-const double ANG2 = 50.0;
-const double LINEAR_SPEED = 0.1;    // 直行速度
+const double D1 = 1.3;
+const double D2 = 1.85;
+const double ANG1 = 13.0;
+const double ANG2 = 23.0;
+const double LINEAR_SPEED = 0.2;    // 直行速度
 const double ANGULAR_SPEED = 0.5;    // 旋转角速度
 
 // ====================== 4. 固定参数 ======================
