@@ -32,10 +32,12 @@ const int V_HIGH = 255;
 const int MIN_CONTOUR_AREA = 200; 
 
 // 3. 锥桶路径运动控制参数
-const double D1 = 1.3;
-const double D2 = 2;
-const double ANG1 = 13.0;
-const double ANG2 = 23.0;
+const double D1 = 1.4;
+const double D2 = 0.8;
+const double D3 = 1.2;
+const double ANG1 = 36;
+const double ANG2 = 36;
+const double ANG3 = 55;
 const double CONE_LINEAR_SPEED = 0.2;    // 锥桶阶段直行速度
 const double CONE_ANGULAR_SPEED = 0.5;   // 锥桶阶段旋转角速度
 
@@ -67,6 +69,8 @@ enum MotionState {
     TURN_RIGHT_ANG1,
     GO_STRAIGHT_D2,
     TURN_RIGHT_ANG2,
+    GO_STRAIGHT_D3,
+    TURN_RIGHT_ANG3,
     GO_STRAIGHT_FINAL,
     // 数字跟踪阶段
     ROTATE_TO_NUMBER,
@@ -313,9 +317,9 @@ void motionControl(bool cone_detected, const DetectionResult& number_detected) {
             if (distance >= D2) {
                 current_state = TURN_RIGHT_ANG2;
                 start_yaw = current_yaw;
-                ROS_INFO("完成D2直行（%.2fm），开始右转ANG2=%.1f°", distance, ANG2);
+                ROS_INFO("完成D2直行（%.2fm），开始转ANG2=%.1f°", distance, ANG2);
                 vel_msg.linear.x = 0.0;
-                vel_msg.angular.z = -CONE_ANGULAR_SPEED;  
+                vel_msg.angular.z = CONE_ANGULAR_SPEED;  
             } else {
                 vel_msg.linear.x = CONE_LINEAR_SPEED;
                 vel_msg.angular.z = 0.0;
@@ -328,14 +332,48 @@ void motionControl(bool cone_detected, const DetectionResult& number_detected) {
             double target_angle = ANG2 * M_PI / 180.0;
             double turned_angle = calcTurnAngle(start_yaw, current_yaw);
             if (turned_angle >= target_angle) {
+                current_state = GO_STRAIGHT_D3;
+                start_x = current_x;
+                start_y = current_y;
+                ROS_INFO("完成ANG2转（%.1f°），直行", ANG2);
+                vel_msg.angular.z = 0.0;
+                vel_msg.linear.x = CONE_LINEAR_SPEED;
+            } else {
+                vel_msg.linear.x = 0.0;
+                vel_msg.angular.z = CONE_ANGULAR_SPEED; 
+                ROS_INFO("转ANG2：已转%.1f°/%.1f°", turned_angle * 180 / M_PI, ANG2);
+            }
+            break;
+        }
+        
+        case GO_STRAIGHT_D3: {
+            double distance = calcDistance(start_x, start_y, current_x, current_y);
+            if (distance >= D3) {
+                current_state = TURN_RIGHT_ANG3;
+                start_yaw = current_yaw;
+                ROS_INFO("完成D3直行（%.2fm），开始右转ANG3=%.1f°", distance, ANG3);
+                vel_msg.linear.x = 0.0;
+                vel_msg.angular.z = -CONE_ANGULAR_SPEED;  
+            } else {
+                vel_msg.linear.x = CONE_LINEAR_SPEED;
+                vel_msg.angular.z = 0.0;
+                ROS_INFO("直行D3：已行驶%.2fm/%.2fm", distance, D3);
+            }
+            break;
+        }
+        
+        case TURN_RIGHT_ANG3: {
+            double target_angle = ANG3 * M_PI / 180.0;
+            double turned_angle = calcTurnAngle(start_yaw, current_yaw);
+            if (turned_angle >= target_angle) {
                 current_state = GO_STRAIGHT_FINAL;
-                ROS_INFO("完成ANG2右转（%.1f°），持续直行", ANG2);
+                ROS_INFO("完成ANG3转（%.1f°），直行", ANG3);
                 vel_msg.angular.z = 0.0;
                 vel_msg.linear.x = CONE_LINEAR_SPEED;
             } else {
                 vel_msg.linear.x = 0.0;
                 vel_msg.angular.z = -CONE_ANGULAR_SPEED; 
-                ROS_INFO("右转ANG2：已转%.1f°/%.1f°", turned_angle * 180 / M_PI, ANG2);
+                ROS_INFO("转ANG3：已转%.1f°/%.1f°", turned_angle * 180 / M_PI, ANG3);
             }
             break;
         }
@@ -496,6 +534,7 @@ int main(int argc, char** argv) {
     namedWindow("数字识别", WINDOW_AUTOSIZE);
     
     // 4. 主循环10Hz
+    //current_state=STOP;
     ros::Rate loop_rate(10);
     while (ros::ok()) {
         Mat frame;
